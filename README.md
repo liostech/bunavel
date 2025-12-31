@@ -139,6 +139,48 @@ user.save();
 user.delete();
 ```
 
+**Relationships:**
+
+```typescript
+export class User extends Model {
+  protected static override tableName = "users";
+
+  // One-to-one
+  profile(): HasOne<Profile> {
+    return this.hasOne(Profile, "user_id", "id");
+  }
+
+  // One-to-many
+  posts(): HasMany<Post> {
+    return this.hasMany(Post, "user_id", "id");
+  }
+
+  // Many-to-many
+  roles(): BelongsToMany<Role> {
+    return this.belongsToMany(Role, "role_user", "user_id", "role_id");
+  }
+}
+
+// Usage
+const user = User.find(1);
+const profile = await user.profile().get();
+const posts = await user.posts().get();
+const roles = await user.roles().get();
+```
+
+**Eager Loading:**
+
+```typescript
+// Eager load relationships to avoid N+1 queries
+const users = User.with("profile", "posts").get();
+// users[0].profile and users[0].posts are pre-loaded
+
+// Lazy loading
+const user = User.find(1);
+await user.load("posts", "profile");
+const posts = user.getRelation("posts");
+```
+
 ### 5. Validation
 
 Laravel-inspired validation:
@@ -327,18 +369,22 @@ bun test:coverage
 
 ## Testing
 
-Bunavel includes a comprehensive test suite with **65+ tests** covering:
+Bunavel includes a comprehensive test suite with **294+ tests** covering:
 - ✅ Router and routing with parameters
 - ✅ Validation with all rules
 - ✅ Database query builder
+- ✅ Eloquent models and relationships
+- ✅ Eager loading for relationships
 - ✅ Middleware system
 - ✅ HTTP helpers
+- ✅ Database migrations
+- ✅ Database seeders
 
 **Test Results:**
 ```
-✓ 65 pass
+✓ 294 pass
 ✓ 0 fail
-✓ 109 expect() calls
+✓ 601 expect() calls
 ```
 
 For detailed testing documentation, see [docs/TESTING.md](docs/TESTING.md)

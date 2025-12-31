@@ -6,10 +6,10 @@ import { Collection } from "../../support/Collection";
  * Base Relation class for Eloquent relationships
  */
 export abstract class Relation<T extends Model = Model> {
-  protected parent: Model;
-  protected related: typeof Model;
-  protected foreignKey: string;
-  protected localKey: string;
+  public parent: Model;
+  public related: typeof Model;
+  public foreignKey: string;
+  public localKey: string;
 
   constructor(
     parent: Model,
@@ -39,7 +39,7 @@ export abstract class Relation<T extends Model = Model> {
   /**
    * Get the query builder for the related model
    */
-  protected getRelatedQuery(): QueryBuilder {
+  public getRelatedQuery(): QueryBuilder {
     return this.related.query();
   }
 
@@ -56,7 +56,7 @@ export abstract class Relation<T extends Model = Model> {
   /**
    * Convert raw results to model instances
    */
-  protected hydrate(results: any[]): Collection<T> {
+  public hydrate(results: any[]): Collection<T> {
     const models = results.map(result => {
       return this.related["hydrate"](result) as T;
     });
@@ -67,7 +67,7 @@ export abstract class Relation<T extends Model = Model> {
   /**
    * Convert single result to model instance
    */
-  protected hydrateOne(result: any): T | null {
+  public hydrateOne(result: any): T | null {
     if (!result) return null;
     return this.related["hydrate"](result) as T;
   }

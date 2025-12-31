@@ -7,6 +7,8 @@ import { QueryBuilder } from "../QueryBuilder";
  * Example: Post belongsTo User
  */
 export class BelongsTo<T extends Model = Model> extends Relation<T> {
+  public ownerKey: string;
+
   constructor(
     parent: Model,
     related: typeof Model,
@@ -14,6 +16,7 @@ export class BelongsTo<T extends Model = Model> extends Relation<T> {
     ownerKey?: string
   ) {
     super(parent, related, foreignKey, ownerKey || "id");
+    this.ownerKey = ownerKey || "id";
   }
 
   /**

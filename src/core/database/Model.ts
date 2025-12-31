@@ -14,6 +14,7 @@ export abstract class Model {
   protected attributes: Record<string, any> = {};
   protected original: Record<string, any> = {};
   public exists: boolean = false;
+  protected relations: Record<string, any> = {};
 
   /**
    * Set the database connection
@@ -38,7 +39,7 @@ export abstract class Model {
    * Create a new query builder instance
    */
   public static query(): QueryBuilder {
-    return new QueryBuilder(this.connection).table(this.getTable());
+    return new QueryBuilder(this.connection).table(this.getTable()).setModel(this);
   }
 
   /**
@@ -48,6 +49,13 @@ export abstract class Model {
     const results = this.query().get();
     const models = results.map((row: any) => this.hydrate<T>(row));
     return new Collection(models);
+  }
+
+  /**
+   * Get all records with eager loaded relationships
+   */
+  public static with<T extends Model>(...relations: string[]): QueryBuilder {
+    return this.query().with(...relations);
   }
 
   /**
@@ -237,6 +245,47 @@ export abstract class Model {
    */
   public toString(): string {
     return JSON.stringify(this.toJson());
+  }
+
+  /**
+   * Load relationships into the model
+   */
+  public setRelation(name: string, value: any): this {
+    this.relations[name] = value;
+    return this;
+  }
+
+  /**
+   * Get a loaded relationship
+   */
+  public getRelation(name: string): any {
+    return this.relations[name];
+  }
+
+  /**
+   * Check if a relationship is loaded
+   */
+  public relationLoaded(name: string): boolean {
+    return name in this.relations;
+  }
+
+  /**
+   * Load relationships onto the model
+   */
+  public async load(...relations: string[]): Promise<this> {
+    const constructor = this.constructor as typeof Model;
+    
+    for (const relationName of relations) {
+      // Get the relationship method
+      const relationMethod = (this as any)[relationName];
+      if (typeof relationMethod === 'function') {
+        const relation = relationMethod.call(this);
+        const result = await relation.get();
+        this.setRelation(relationName, result);
+      }
+    }
+    
+    return this;
   }
 
   /**

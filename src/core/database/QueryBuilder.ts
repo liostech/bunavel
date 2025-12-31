@@ -1,5 +1,6 @@
 import type { DatabaseConnection } from "./Connection";
 import { Paginator } from "./Paginator";
+import type { Model } from "./Model";
 
 export class QueryBuilder {
   private connection: DatabaseConnection;
@@ -11,6 +12,7 @@ export class QueryBuilder {
   private offsetValue?: number;
   private joinClauses: string[] = [];
   private eagerLoadRelations: string[] = [];
+  private modelClass?: typeof Model;
 
   constructor(connection: DatabaseConnection) {
     this.connection = connection;
@@ -21,6 +23,14 @@ export class QueryBuilder {
    */
   public table(table: string): this {
     this.tableName = table;
+    return this;
+  }
+
+  /**
+   * Set the model class for eager loading
+   */
+  public setModel(modelClass: typeof Model): this {
+    this.modelClass = modelClass;
     return this;
   }
 
@@ -179,7 +189,153 @@ export class QueryBuilder {
    */
   public get(): any[] {
     const { sql, params } = this.buildSelectQuery();
-    return this.connection.query(sql, params);
+    const results = this.connection.query(sql, params);
+    
+    // If eager loading relationships and we have a model class
+    if (this.eagerLoadRelations.length > 0 && this.modelClass) {
+      return this.eagerLoadRelationships(results);
+    }
+    
+    return results;
+  }
+
+  /**
+   * Eager load relationships for the given models
+   */
+  private eagerLoadRelationships(results: any[]): any[] {
+    if (!this.modelClass || results.length === 0) {
+      return results;
+    }
+
+    // Hydrate models
+    const models = results.map((row: any) => this.modelClass!["hydrate"](row));
+
+    // Load each relationship
+    for (const relationName of this.eagerLoadRelations) {
+      this.eagerLoadRelation(models, relationName);
+    }
+
+    // Convert back to plain objects to maintain compatibility
+    return models.map((model: any) => {
+      const data = model.toJson();
+      // Add loaded relations to the output
+      for (const relationName of this.eagerLoadRelations) {
+        if (model.relationLoaded(relationName)) {
+          const relation = model.getRelation(relationName);
+          // Convert Collection or Model to JSON
+          if (relation === null || relation === undefined) {
+            data[relationName] = relation;
+          } else if (Array.isArray(relation)) {
+            // Already an array
+            data[relationName] = relation.map((m: any) => 
+              typeof m.toJson === 'function' ? m.toJson() : m
+            );
+          } else if (typeof relation.toArray === 'function') {
+            // Collection - convert to array
+            data[relationName] = relation.toArray().map((m: any) => 
+              typeof m.toJson === 'function' ? m.toJson() : m
+            );
+          } else if (typeof relation.toJson === 'function') {
+            // Single model
+            data[relationName] = relation.toJson();
+          } else {
+            data[relationName] = relation;
+          }
+        }
+      }
+      return data;
+    });
+  }
+
+  /**
+   * Eager load a single relationship onto the models
+   */
+  private eagerLoadRelation(models: any[], relationName: string): void {
+    if (models.length === 0) return;
+
+    // Get the first model to determine the relationship type
+    const firstModel = models[0];
+    const relationMethod = firstModel[relationName];
+    
+    if (typeof relationMethod !== 'function') {
+      console.warn(`Relationship ${relationName} not found on model`);
+      return;
+    }
+
+    // Get the relation instance
+    const relation = relationMethod.call(firstModel);
+    
+    // Get all parent keys
+    const parentKeys = models.map((model: any) => model.get('id')).filter((id: any) => id != null);
+    
+    if (parentKeys.length === 0) return;
+
+    // Determine the foreign key from the relation
+    const foreignKey = relation.foreignKey || 'id';
+    
+    // Load all related models in one query
+    const relatedQuery = relation.getRelatedQuery();
+    
+    // For HasMany and HasOne, we query by foreign key
+    // For BelongsTo, we query by the owner key
+    const relationType = relation.constructor.name;
+    
+    if (relationType === 'HasMany' || relationType === 'HasOne') {
+      relatedQuery.whereIn(foreignKey, parentKeys);
+    } else if (relationType === 'BelongsTo') {
+      // For BelongsTo, collect the foreign key values from parents
+      const foreignKeys = models.map((model: any) => model.get(foreignKey)).filter((fk: any) => fk != null);
+      if (foreignKeys.length > 0) {
+        relatedQuery.whereIn('id', foreignKeys);
+      } else {
+        return;
+      }
+    } else if (relationType === 'BelongsToMany') {
+      // BelongsToMany requires joining through pivot table
+      // This is more complex and will be handled separately
+      return;
+    }
+
+    const relatedModels = relatedQuery.get();
+    
+    // Group related models by their foreign key
+    const grouped: Record<string, any[]> = {};
+    
+    if (relationType === 'BelongsTo') {
+      // For BelongsTo, key by the model's own ID
+      for (const relatedRow of relatedModels) {
+        const key = relatedRow.id || relatedRow[relation.ownerKey || 'id'];
+        grouped[key] = [relatedRow];
+      }
+    } else {
+      // For HasMany/HasOne, key by foreign key value
+      for (const relatedRow of relatedModels) {
+        const key = relatedRow[foreignKey];
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(relatedRow);
+      }
+    }
+
+    // Attach related models to parent models
+    for (const model of models) {
+      let related;
+      
+      if (relationType === 'BelongsTo') {
+        const fkValue = model.get(foreignKey);
+        const relatedRows = grouped[fkValue] || [];
+        related = relatedRows.length > 0 ? relation.hydrateOne(relatedRows[0]) : null;
+      } else if (relationType === 'HasOne') {
+        const parentKey = model.get('id');
+        const relatedRows = grouped[parentKey] || [];
+        related = relatedRows.length > 0 ? relation.hydrateOne(relatedRows[0]) : null;
+      } else if (relationType === 'HasMany') {
+        const parentKey = model.get('id');
+        const relatedRows = grouped[parentKey] || [];
+        related = relation.hydrate(relatedRows);
+      }
+      
+      model.setRelation(relationName, related);
+    }
   }
 
   /**
