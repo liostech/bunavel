@@ -293,6 +293,71 @@ DB_DRIVER=sqlite
 DB_FILENAME=./storage/database.sqlite
 ```
 
+### 8. Caching
+
+Bunavel provides a flexible caching system with multiple drivers:
+
+```typescript
+import { Cache } from "./src/core/cache/Cache";
+
+// Create cache instance with memory driver
+const cache = new Cache({ driver: "memory" });
+
+// Or use file driver for persistence
+const cache = new Cache({ 
+  driver: "file",
+  path: "./storage/cache"
+});
+
+// Store values
+cache.put("key", "value", 60); // TTL in seconds
+cache.forever("key", "value"); // Store forever
+
+// Retrieve values
+const value = cache.get("key");
+const withDefault = cache.get("key", "default");
+
+// Check existence
+if (cache.has("key")) {
+  // Key exists
+}
+
+// Remember (cache result of callback)
+const users = cache.remember("users", 60, () => {
+  return User.all(); // Only called if not cached
+});
+
+// Increment/Decrement
+cache.put("views", 0);
+cache.increment("views"); // 1
+cache.increment("views", 5); // 6
+cache.decrement("views"); // 5
+
+// Remove items
+cache.forget("key");
+cache.forgetMany(["key1", "key2"]);
+cache.flush(); // Clear all cache
+
+// Pull (get and remove)
+const value = cache.pull("key");
+
+// Add (only if not exists)
+cache.add("key", "value", 60);
+```
+
+**Available Drivers:**
+- `memory` - In-memory cache (fast, but lost on restart)
+- `file` - File-based cache (persists between restarts)
+
+**Cache with Prefix:**
+
+```typescript
+const cache = new Cache({
+  driver: "memory",
+  prefix: "myapp" // All keys prefixed with "myapp:"
+});
+```
+
 ### 8. Dependency Injection
 
 ```typescript
@@ -369,12 +434,13 @@ bun test:coverage
 
 ## Testing
 
-Bunavel includes a comprehensive test suite with **294+ tests** covering:
+Bunavel includes a comprehensive test suite with **320+ tests** covering:
 - ✅ Router and routing with parameters
 - ✅ Validation with all rules
 - ✅ Database query builder
 - ✅ Eloquent models and relationships
 - ✅ Eager loading for relationships
+- ✅ Caching with multiple drivers
 - ✅ Middleware system
 - ✅ HTTP helpers
 - ✅ Database migrations
@@ -382,9 +448,9 @@ Bunavel includes a comprehensive test suite with **294+ tests** covering:
 
 **Test Results:**
 ```
-✓ 294 pass
+✓ 320 pass
 ✓ 0 fail
-✓ 601 expect() calls
+✓ 652 expect() calls
 ```
 
 For detailed testing documentation, see [docs/TESTING.md](docs/TESTING.md)

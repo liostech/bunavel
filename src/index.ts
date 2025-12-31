@@ -41,6 +41,12 @@ export { RateLimitMiddleware } from "./core/middleware/RateLimitMiddleware";
 // Config
 export { Env } from "./core/config/Env";
 
+// Cache
+export { Cache, type CacheConfig, type CacheDriverType } from "./core/cache/Cache";
+export type { CacheDriver } from "./core/cache/CacheDriver";
+export { MemoryCacheDriver } from "./core/cache/MemoryCacheDriver";
+export { FileCacheDriver } from "./core/cache/FileCacheDriver";
+
 // Support
 export { Collection, collect } from "./core/support/Collection";
 export { Str, str } from "./core/support/Str";
