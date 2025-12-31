@@ -12,14 +12,15 @@ export { HttpRequest } from "./core/http/Request";
 export { HttpResponse } from "./core/http/Response";
 
 // Database
-export { DatabaseConnection } from "./core/database/Connection";
-export type { DatabaseConfig } from "./core/database/Connection";
-export { QueryBuilder } from "./core/database/QueryBuilder";
 export { Model } from "./core/database/Model";
+export { QueryBuilder } from "./core/database/QueryBuilder";
+export { DatabaseConnection, type DatabaseConfig } from "./core/database/Connection";
 export { Schema, Blueprint, ColumnDefinition } from "./core/database/Schema";
 export { Migration } from "./core/database/Migration";
 export { Migrator } from "./core/database/Migrator";
-export type { MigrationRecord } from "./core/database/Migrator";
+export { Paginator, type PaginationLink } from "./core/database/Paginator";
+
+// Relationships
 export { Relation } from "./core/database/relations/Relation";
 export { HasOne } from "./core/database/relations/HasOne";
 export { HasMany } from "./core/database/relations/HasMany";

@@ -1,4 +1,5 @@
 import type { DatabaseConnection } from "./Connection";
+import { Paginator } from "./Paginator";
 
 export class QueryBuilder {
   private connection: DatabaseConnection;
@@ -207,6 +208,22 @@ export class QueryBuilder {
     this.selectColumns = originalSelect;
     const result = this.connection.queryOne(sql, params);
     return result?.count ?? 0;
+  }
+
+  /**
+   * Paginate the query results
+   */
+  public paginate(perPage: number = 15, page: number = 1): Paginator {
+    // Get total count
+    const total = this.count();
+    
+    // Calculate offset
+    const offset = (page - 1) * perPage;
+    
+    // Get paginated results
+    const items = this.limit(perPage).offset(offset).get();
+    
+    return new Paginator(items, total, perPage, page);
   }
 
   /**

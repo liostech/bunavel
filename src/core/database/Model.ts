@@ -1,6 +1,7 @@
 import type { DatabaseConnection } from "./Connection";
 import { QueryBuilder } from "./QueryBuilder";
 import { Collection } from "../support/Collection";
+import { Paginator } from "./Paginator";
 import { HasOne } from "./relations/HasOne";
 import { HasMany } from "./relations/HasMany";
 import { BelongsTo } from "./relations/BelongsTo";
@@ -73,6 +74,23 @@ export abstract class Model {
    */
   public static where(column: string, operator: string, value?: any): QueryBuilder {
     return this.query().where(column, operator, value);
+  }
+
+  /**
+   * Paginate records
+   */
+  public static paginate<T extends Model>(perPage: number = 15, page: number = 1): Paginator<T> {
+    const paginator = this.query().paginate(perPage, page);
+    
+    // Hydrate the items
+    const items = paginator.data().map((row: any) => this.hydrate<T>(row)).toArray();
+    
+    return new Paginator(
+      items,
+      paginator.getTotal(),
+      paginator.getPerPage(),
+      paginator.getCurrentPage()
+    );
   }
 
   /**
