@@ -47,6 +47,11 @@ export type { CacheDriver } from "./core/cache/CacheDriver";
 export { MemoryCacheDriver } from "./core/cache/MemoryCacheDriver";
 export { FileCacheDriver } from "./core/cache/FileCacheDriver";
 
+// Events
+export { Event } from "./core/events/Event";
+export { type Listener, BaseListener } from "./core/events/Listener";
+export { EventDispatcher } from "./core/events/EventDispatcher";
+
 // Support
 export { Collection, collect } from "./core/support/Collection";
 export { Str, str } from "./core/support/Str";

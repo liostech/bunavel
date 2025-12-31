@@ -358,6 +358,69 @@ const cache = new Cache({
 });
 ```
 
+### 9. Event System
+
+Bunavel provides a powerful event system for decoupling application logic:
+
+```typescript
+import { Event, BaseListener, EventDispatcher } from "./src";
+
+// Define events
+class UserRegistered extends Event {
+  constructor(
+    public readonly userId: number,
+    public readonly email: string
+  ) {
+    super();
+  }
+}
+
+// Define listeners
+class SendWelcomeEmail extends BaseListener<UserRegistered> {
+  async handle(event: UserRegistered): Promise<void> {
+    // Send welcome email logic
+    console.log(`Sending welcome email to ${event.email}`);
+  }
+}
+
+class CreateUserProfile extends BaseListener<UserRegistered> {
+  async handle(event: UserRegistered): Promise<void> {
+    // Create user profile logic
+    console.log(`Creating profile for user ${event.userId}`);
+  }
+}
+
+// Register listeners
+const dispatcher = new EventDispatcher();
+dispatcher.listen(UserRegistered, new SendWelcomeEmail());
+dispatcher.listen(UserRegistered, new CreateUserProfile());
+
+// Or use inline function listeners
+dispatcher.listen(UserRegistered, (event) => {
+  console.log(`User ${event.userId} registered`);
+});
+
+// Dispatch events
+const event = new UserRegistered(1, "user@example.com");
+await dispatcher.dispatch(event);
+
+// Fire and forget (don't wait for listeners)
+dispatcher.fire(event);
+
+// Wildcard listeners (listen to all events)
+dispatcher.listenAll((event: Event) => {
+  console.log(`Event occurred: ${event.constructor.name}`);
+});
+```
+
+**Event System Features:**
+- Type-safe event and listener definitions
+- Multiple listeners per event
+- Async listener support
+- Wildcard listeners for all events
+- Error handling (one listener error won't stop others)
+- Listener management (forget, flush, check existence)
+
 ### 8. Dependency Injection
 
 ```typescript
@@ -434,13 +497,14 @@ bun test:coverage
 
 ## Testing
 
-Bunavel includes a comprehensive test suite with **320+ tests** covering:
+Bunavel includes a comprehensive test suite with **338+ tests** covering:
 - ✅ Router and routing with parameters
 - ✅ Validation with all rules
 - ✅ Database query builder
 - ✅ Eloquent models and relationships
 - ✅ Eager loading for relationships
 - ✅ Caching with multiple drivers
+- ✅ Event system with listeners
 - ✅ Middleware system
 - ✅ HTTP helpers
 - ✅ Database migrations
@@ -448,9 +512,9 @@ Bunavel includes a comprehensive test suite with **320+ tests** covering:
 
 **Test Results:**
 ```
-✓ 320 pass
+✓ 338 pass
 ✓ 0 fail
-✓ 652 expect() calls
+✓ 691 expect() calls
 ```
 
 For detailed testing documentation, see [docs/TESTING.md](docs/TESTING.md)
