@@ -16,6 +16,10 @@ export { DatabaseConnection } from "./core/database/Connection";
 export type { DatabaseConfig } from "./core/database/Connection";
 export { QueryBuilder } from "./core/database/QueryBuilder";
 export { Model } from "./core/database/Model";
+export { Schema, Blueprint, ColumnDefinition } from "./core/database/Schema";
+export { Migration } from "./core/database/Migration";
+export { Migrator } from "./core/database/Migrator";
+export type { MigrationRecord } from "./core/database/Migrator";
 
 // Validation
 export { Validator, validate } from "./core/validation/Validator";
