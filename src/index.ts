@@ -19,6 +19,8 @@ export { Schema, Blueprint, ColumnDefinition } from "./core/database/Schema";
 export { Migration } from "./core/database/Migration";
 export { Migrator } from "./core/database/Migrator";
 export { Paginator, type PaginationLink } from "./core/database/Paginator";
+export { Seeder } from "./core/database/Seeder";
+export { SeederManager } from "./core/database/SeederManager";
 
 // Relationships
 export { Relation } from "./core/database/relations/Relation";
