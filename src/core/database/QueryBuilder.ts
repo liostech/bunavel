@@ -9,6 +9,7 @@ export class QueryBuilder {
   private limitValue?: number;
   private offsetValue?: number;
   private joinClauses: string[] = [];
+  private eagerLoadRelations: string[] = [];
 
   constructor(connection: DatabaseConnection) {
     this.connection = connection;
@@ -105,6 +106,21 @@ export class QueryBuilder {
   public leftJoin(table: string, firstColumn: string, operator: string, secondColumn: string): this {
     this.joinClauses.push(`LEFT JOIN ${table} ON ${firstColumn} ${operator} ${secondColumn}`);
     return this;
+  }
+
+  /**
+   * Eager load relationships
+   */
+  public with(...relations: string[]): this {
+    this.eagerLoadRelations.push(...relations);
+    return this;
+  }
+
+  /**
+   * Get eager load relations
+   */
+  public getEagerLoadRelations(): string[] {
+    return this.eagerLoadRelations;
   }
 
   /**
@@ -242,8 +258,18 @@ export class QueryBuilder {
     if (this.whereConditions.length > 0) {
       const whereParts: string[] = [];
       for (const condition of this.whereConditions) {
-        whereParts.push(`${condition.column} ${condition.operator} ?`);
-        params.push(condition.value);
+        if (condition.operator === "IN" && Array.isArray(condition.value)) {
+          // Handle IN clause with multiple values
+          const placeholders = condition.value.map(() => "?").join(", ");
+          whereParts.push(`${condition.column} IN (${placeholders})`);
+          params.push(...condition.value);
+        } else if (condition.operator === "IS NULL" || condition.operator === "IS NOT NULL") {
+          // Handle IS NULL / IS NOT NULL without parameters
+          whereParts.push(`${condition.column} ${condition.operator}`);
+        } else {
+          whereParts.push(`${condition.column} ${condition.operator} ?`);
+          params.push(condition.value);
+        }
       }
       sql += ` WHERE ${whereParts.join(" AND ")}`;
     }

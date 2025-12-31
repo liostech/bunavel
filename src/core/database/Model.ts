@@ -1,6 +1,10 @@
 import type { DatabaseConnection } from "./Connection";
 import { QueryBuilder } from "./QueryBuilder";
 import { Collection } from "../support/Collection";
+import { HasOne } from "./relations/HasOne";
+import { HasMany } from "./relations/HasMany";
+import { BelongsTo } from "./relations/BelongsTo";
+import { BelongsToMany } from "./relations/BelongsToMany";
 
 export abstract class Model {
   protected static connection: DatabaseConnection;
@@ -215,5 +219,60 @@ export abstract class Model {
    */
   public toString(): string {
     return JSON.stringify(this.toJson());
+  }
+
+  /**
+   * Define a one-to-one relationship
+   */
+  protected hasOne<T extends Model>(
+    related: typeof Model,
+    foreignKey?: string,
+    localKey?: string
+  ): HasOne<T> {
+    return new HasOne<T>(this, related, foreignKey, localKey);
+  }
+
+  /**
+   * Define a one-to-many relationship
+   */
+  protected hasMany<T extends Model>(
+    related: typeof Model,
+    foreignKey?: string,
+    localKey?: string
+  ): HasMany<T> {
+    return new HasMany<T>(this, related, foreignKey, localKey);
+  }
+
+  /**
+   * Define an inverse one-to-one or one-to-many relationship
+   */
+  protected belongsTo<T extends Model>(
+    related: typeof Model,
+    foreignKey?: string,
+    ownerKey?: string
+  ): BelongsTo<T> {
+    return new BelongsTo<T>(this, related, foreignKey, ownerKey);
+  }
+
+  /**
+   * Define a many-to-many relationship
+   */
+  protected belongsToMany<T extends Model>(
+    related: typeof Model,
+    pivotTable?: string,
+    foreignPivotKey?: string,
+    relatedPivotKey?: string,
+    parentKey?: string,
+    relatedKey?: string
+  ): BelongsToMany<T> {
+    return new BelongsToMany<T>(
+      this,
+      related,
+      pivotTable,
+      foreignPivotKey,
+      relatedPivotKey,
+      parentKey,
+      relatedKey
+    );
   }
 }

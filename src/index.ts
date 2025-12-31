@@ -20,6 +20,11 @@ export { Schema, Blueprint, ColumnDefinition } from "./core/database/Schema";
 export { Migration } from "./core/database/Migration";
 export { Migrator } from "./core/database/Migrator";
 export type { MigrationRecord } from "./core/database/Migrator";
+export { Relation } from "./core/database/relations/Relation";
+export { HasOne } from "./core/database/relations/HasOne";
+export { HasMany } from "./core/database/relations/HasMany";
+export { BelongsTo } from "./core/database/relations/BelongsTo";
+export { BelongsToMany } from "./core/database/relations/BelongsToMany";
 
 // Validation
 export { Validator, validate } from "./core/validation/Validator";
