@@ -34,3 +34,7 @@ export { Collection, collect } from "./core/support/Collection";
 export { Str, str } from "./core/support/Str";
 export { Arr } from "./core/support/Arr";
 export { dd, dump, optional, value, tap, retry, sleep, blank, filled } from "./core/support/helpers";
+
+// CLI
+export { Artisan } from "./core/cli/Artisan";
+export { Command } from "./core/cli/Command";
