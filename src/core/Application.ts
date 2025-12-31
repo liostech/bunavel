@@ -2,6 +2,9 @@ import type { Server } from "bun";
 import { Router } from "./routing/Router";
 import { Container } from "./container/Container";
 import type { Middleware } from "./middleware/Middleware";
+import { ExceptionHandler } from "./exceptions/ExceptionHandler";
+import { HttpRequest } from "./http/Request";
+import { NotFoundException } from "./exceptions/HttpException";
 
 export class Application {
   private router: Router;
@@ -9,10 +12,12 @@ export class Application {
   private server?: Server<unknown>;
   private middleware: Middleware[] = [];
   private config: Record<string, any> = {};
+  private exceptionHandler: ExceptionHandler;
 
   constructor() {
     this.router = new Router();
     this.container = new Container();
+    this.exceptionHandler = new ExceptionHandler();
     this.bootstrapCore();
   }
 
@@ -47,36 +52,39 @@ export class Application {
   public async serve(port: number = 3000): Promise<void> {
     const router = this.router;
     const middleware = this.middleware;
+    const exceptionHandler = this.exceptionHandler;
 
     this.server = Bun.serve({
       port,
       async fetch(req: Request): Promise<Response> {
-        const url = new URL(req.url);
-        const method = req.method;
-
-        // Execute middleware chain
-        let request = req;
-        for (const mw of middleware) {
-          const result = await mw.handle(request);
-          if (result instanceof Response) {
-            return result;
-          }
-          request = result;
-        }
-
-        // Route the request
-        const route = router.match(method, url.pathname);
-        
-        if (!route) {
-          return new Response("Not Found", { status: 404 });
-        }
-
         try {
+          const url = new URL(req.url);
+          const method = req.method;
+
+          // Execute middleware chain
+          let request = req;
+          for (const mw of middleware) {
+            const result = await mw.handle(request);
+            if (result instanceof Response) {
+              return result;
+            }
+            request = result;
+          }
+
+          // Route the request
+          const route = router.match(method, url.pathname);
+          
+          if (!route) {
+            throw new NotFoundException(`Route not found: ${method} ${url.pathname}`);
+          }
+
+          // Execute route handler
           const response = await route.handler(request, route.params);
           return response;
         } catch (error) {
-          console.error("Error handling request:", error);
-          return new Response("Internal Server Error", { status: 500 });
+          // Handle exceptions using the exception handler
+          const httpRequest = new HttpRequest(req);
+          return exceptionHandler.handle(error as Error, httpRequest);
         }
       },
     });

@@ -45,6 +45,25 @@ export { Str, str } from "./core/support/Str";
 export { Arr } from "./core/support/Arr";
 export { dd, dump, optional, value, tap, retry, sleep, blank, filled } from "./core/support/helpers";
 
+// Exceptions
+export { 
+  HttpException, 
+  BadRequestException, 
+  UnauthorizedException, 
+  ForbiddenException, 
+  NotFoundException, 
+  MethodNotAllowedException, 
+  ConflictException, 
+  UnprocessableEntityException, 
+  ValidationException, 
+  TooManyRequestsException, 
+  InternalServerErrorException, 
+  ServiceUnavailableException, 
+  ModelNotFoundException 
+} from "./core/exceptions/HttpException";
+export { ExceptionHandler } from "./core/exceptions/ExceptionHandler";
+export { abort, abort_if, abort_unless, abort_404, abort_403, abort_401, abort_500 } from "./core/support/abort";
+
 // CLI
 export { Artisan } from "./core/cli/Artisan";
 export { Command } from "./core/cli/Command";
