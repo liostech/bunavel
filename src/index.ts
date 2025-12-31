@@ -52,6 +52,13 @@ export { Event } from "./core/events/Event";
 export { type Listener, BaseListener } from "./core/events/Listener";
 export { EventDispatcher } from "./core/events/EventDispatcher";
 
+// Queue
+export { type Job, BaseJob } from "./core/queue/Job";
+export { type QueueDriver, type QueuedJob } from "./core/queue/QueueDriver";
+export { Queue } from "./core/queue/Queue";
+export { SyncQueueDriver } from "./core/queue/SyncQueueDriver";
+export { MemoryQueueDriver } from "./core/queue/MemoryQueueDriver";
+
 // Support
 export { Collection, collect } from "./core/support/Collection";
 export { Str, str } from "./core/support/Str";

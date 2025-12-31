@@ -421,6 +421,90 @@ dispatcher.listenAll((event: Event) => {
 - Error handling (one listener error won't stop others)
 - Listener management (forget, flush, check existence)
 
+### 10. Queue System
+
+Bunavel provides a comprehensive queue system for background job processing:
+
+```typescript
+import { BaseJob, Queue, MemoryQueueDriver, SyncQueueDriver } from "./src";
+
+// Define a job
+class SendEmailJob extends BaseJob {
+  constructor(
+    private to: string,
+    private subject: string,
+    private body: string
+  ) {
+    super();
+    this.tries = 3;         // Retry up to 3 times
+    this.retryAfter = 60;   // Wait 60 seconds before retry
+  }
+
+  async handle(): Promise<void> {
+    // Job logic here
+    console.log(`Sending email to ${this.to}`);
+    // await sendEmail(this.to, this.subject, this.body);
+  }
+
+  async failed(error: Error): Promise<void> {
+    // Handle failure after max retries
+    console.error(`Failed to send email to ${this.to}:`, error);
+  }
+}
+
+// Create queue with memory driver (persists jobs in memory)
+const queue = new Queue({ 
+  driver: new MemoryQueueDriver(),
+  defaultQueue: "default"
+});
+
+// Or use sync driver (executes immediately, no queue)
+const syncQueue = new Queue({ driver: new SyncQueueDriver() });
+
+// Dispatch jobs
+await queue.dispatch(new SendEmailJob("user@example.com", "Welcome", "Hello!"));
+
+// Dispatch with delay (in seconds)
+await queue.later(60, new SendEmailJob("user@example.com", "Reminder", "Don't forget!"));
+
+// Dispatch multiple jobs
+await queue.dispatchMany([
+  new SendEmailJob("user1@example.com", "Hi", "Message 1"),
+  new SendEmailJob("user2@example.com", "Hi", "Message 2"),
+]);
+
+// Dispatch to specific queue
+await queue.dispatch(new SendEmailJob("user@example.com", "Hi", "Message"), "emails");
+
+// Process jobs manually
+await queue.processNext();  // Process one job from default queue
+await queue.processNext("emails");  // Process from specific queue
+
+// Start a worker to process jobs automatically
+queue.startWorker({ 
+  interval: 1000,      // Check every 1 second (default)
+  queueName: "default" // Queue to process (default)
+});
+
+// Stop the worker
+queue.stopWorker();
+
+// Queue management
+const size = await queue.size();           // Get queue size
+const emailQueueSize = await queue.size("emails"); // Specific queue size
+await queue.clear();                       // Clear all jobs
+await queue.clear("emails");               // Clear specific queue
+```
+
+**Queue System Features:**
+- Multiple queue drivers (Memory, Sync)
+- Delayed job execution
+- Automatic retry with configurable attempts
+- Failed job handling
+- Multiple queue support
+- Worker process for automatic job processing
+- Type-safe job definitions
+
 ### 8. Dependency Injection
 
 ```typescript
@@ -497,7 +581,7 @@ bun test:coverage
 
 ## Testing
 
-Bunavel includes a comprehensive test suite with **338+ tests** covering:
+Bunavel includes a comprehensive test suite with **369+ tests** covering:
 - ✅ Router and routing with parameters
 - ✅ Validation with all rules
 - ✅ Database query builder
@@ -505,6 +589,7 @@ Bunavel includes a comprehensive test suite with **338+ tests** covering:
 - ✅ Eager loading for relationships
 - ✅ Caching with multiple drivers
 - ✅ Event system with listeners
+- ✅ Queue system with multiple drivers
 - ✅ Middleware system
 - ✅ HTTP helpers
 - ✅ Database migrations
