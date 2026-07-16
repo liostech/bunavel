@@ -107,3 +107,10 @@ describe("SoftDeletes", () => {
     expect(visibleToPlain).toBeGreaterThan(visibleToSoftDeleteAware);
   });
 });
+
+describe("src/index.ts barrel exports", () => {
+  test("exports SoftDeletes", async () => {
+    const barrel = await import("../../src/index");
+    expect(typeof barrel.SoftDeletes).toBe("function");
+  });
+});
