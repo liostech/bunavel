@@ -135,6 +135,21 @@ export class QueryBuilder {
   }
 
   /**
+   * Apply a named local scope registered on the query's model
+   */
+  public scope(name: string, ...args: any[]): this {
+    if (!this.modelClass) {
+      throw new Error(`Cannot apply scope "${name}": no model is associated with this query.`);
+    }
+    const callback = this.modelClass.getScope(name);
+    if (!callback) {
+      throw new Error(`Scope "${name}" is not defined on ${this.modelClass.name}.`);
+    }
+    callback(this, ...args);
+    return this;
+  }
+
+  /**
    * Build the SQL query
    */
   private buildSelectQuery(): { sql: string; params: any[] } {

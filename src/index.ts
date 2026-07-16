@@ -13,6 +13,7 @@ export { HttpResponse } from "./core/http/Response";
 
 // Database
 export { Model } from "./core/database/Model";
+export type { ScopeCallback } from "./core/database/Model";
 export { QueryBuilder } from "./core/database/QueryBuilder";
 export { DatabaseConnection, type DatabaseConfig } from "./core/database/Connection";
 export { Schema, Blueprint, ColumnDefinition } from "./core/database/Schema";

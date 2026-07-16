@@ -7,6 +7,8 @@ import { HasMany } from "./relations/HasMany";
 import { BelongsTo } from "./relations/BelongsTo";
 import { BelongsToMany } from "./relations/BelongsToMany";
 
+export type ScopeCallback = (query: QueryBuilder, ...args: any[]) => void;
+
 export abstract class Model {
   protected static connection: DatabaseConnection;
   protected static tableName: string;
@@ -21,6 +23,25 @@ export abstract class Model {
    */
   public static setConnection(connection: DatabaseConnection): void {
     this.connection = connection;
+  }
+
+  private static localScopesRegistry = new WeakMap<typeof Model, Map<string, ScopeCallback>>();
+
+  /**
+   * Register a named local scope on this model class
+   */
+  public static addScope(name: string, callback: ScopeCallback): void {
+    if (!Model.localScopesRegistry.has(this)) {
+      Model.localScopesRegistry.set(this, new Map());
+    }
+    Model.localScopesRegistry.get(this)!.set(name, callback);
+  }
+
+  /**
+   * Get a named local scope registered on this model class
+   */
+  public static getScope(name: string): ScopeCallback | undefined {
+    return Model.localScopesRegistry.get(this)?.get(name);
   }
 
   /**
