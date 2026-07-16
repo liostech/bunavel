@@ -1,4 +1,5 @@
 import { Model } from "../../src/core/database/Model";
+import { Hash } from "../../src/core/support/Hash";
 
 export class User extends Model {
   protected static override tableName = "users";
@@ -15,19 +16,15 @@ export class User extends Model {
    * Hash password before saving
    */
   public async setPassword(password: string): Promise<void> {
-    const hasher = new Bun.CryptoHasher("sha256");
-    hasher.update(password);
-    this.set("password", hasher.digest("hex"));
+    this.set("password", await Hash.make(password));
   }
 
   /**
    * Verify password
    */
   public async verifyPassword(password: string): Promise<boolean> {
-    const hasher = new Bun.CryptoHasher("sha256");
-    hasher.update(password);
-    const hashed = hasher.digest("hex");
-    return hashed === this.get("password");
+    const hashed = this.get("password");
+    return hashed ? Hash.check(password, hashed) : false;
   }
 
   /**

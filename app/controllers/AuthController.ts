@@ -2,6 +2,7 @@ import { Controller } from "../../src/core/Controller";
 import { HttpRequest } from "../../src/core/http/Request";
 import { HttpResponse } from "../../src/core/http/Response";
 import { validate } from "../../src/core/validation/Validator";
+import { Auth } from "../../src/core/auth/Auth";
 import { User } from "../models/User";
 
 export class AuthController extends Controller {
@@ -12,7 +13,6 @@ export class AuthController extends Controller {
     const httpRequest = new HttpRequest(request);
     const body = await httpRequest.json<{ name: string; email: string; password: string }>();
 
-    // Validate input
     const validator = validate(body, {
       name: ["required", "string", { min: 2 }],
       email: ["required", "email"],
@@ -23,13 +23,11 @@ export class AuthController extends Controller {
       return HttpResponse.validationError(validator.getErrors());
     }
 
-    // Check if user already exists
     const existingUser = User.findByEmail(body.email);
     if (existingUser) {
       return HttpResponse.error("User with this email already exists", 409);
     }
 
-    // Create user
     const user = new User();
     user.fill({
       name: body.name,
@@ -37,13 +35,16 @@ export class AuthController extends Controller {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
-    
+
     await user.setPassword(body.password);
     user.save();
+
+    const token = Auth.login(user);
 
     return HttpResponse.created({
       message: "User registered successfully",
       user: user.toJson(),
+      token,
     });
   }
 
@@ -54,7 +55,6 @@ export class AuthController extends Controller {
     const httpRequest = new HttpRequest(request);
     const body = await httpRequest.json<{ email: string; password: string }>();
 
-    // Validate input
     const validator = validate(body, {
       email: ["required", "email"],
       password: ["required", "string"],
@@ -64,20 +64,12 @@ export class AuthController extends Controller {
       return HttpResponse.validationError(validator.getErrors());
     }
 
-    // Find user
-    const user = User.findByEmail(body.email);
-    if (!user) {
+    const token = await Auth.attempt({ email: body.email, password: body.password });
+    if (!token) {
       return HttpResponse.unauthorized("Invalid credentials");
     }
 
-    // Verify password
-    const isValid = await user.verifyPassword(body.password);
-    if (!isValid) {
-      return HttpResponse.unauthorized("Invalid credentials");
-    }
-
-    // Generate token (simple implementation - in production use JWT)
-    const token = this.generateToken(user.get("id"));
+    const user = User.findByEmail(body.email)!;
 
     return HttpResponse.json({
       message: "Login successful",
@@ -87,15 +79,35 @@ export class AuthController extends Controller {
   }
 
   /**
+   * Get the currently authenticated user
+   */
+  public async me(request: Request): Promise<Response> {
+    const user = Auth.user(request);
+    if (!user) {
+      return HttpResponse.unauthorized();
+    }
+
+    return HttpResponse.json({ user: user.toJson() });
+  }
+
+  /**
+   * Log the current user out
+   */
+  public async logout(request: Request): Promise<Response> {
+    Auth.logout(request);
+    return HttpResponse.json({ message: "Logged out successfully" });
+  }
+
+  /**
    * Get user profile
    */
   public async profile(request: Request, params: Record<string, string>): Promise<Response> {
     const userId = params.id;
-    
+
     if (!userId) {
       return HttpResponse.error("User ID is required", 400);
     }
-    
+
     const user = User.find(userId);
     if (!user) {
       return HttpResponse.notFound("User not found");
@@ -104,15 +116,5 @@ export class AuthController extends Controller {
     return HttpResponse.json({
       user: user.toJson(),
     });
-  }
-
-  /**
-   * Generate authentication token (simple implementation)
-   */
-  private generateToken(userId: any): string {
-    const data = `${userId}:${Date.now()}`;
-    const hasher = new Bun.CryptoHasher("sha256");
-    hasher.update(data);
-    return hasher.digest("hex");
   }
 }

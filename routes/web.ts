@@ -14,6 +14,8 @@ export function registerRoutes(router: Router): void {
   // Auth routes
   router.post("/auth/register", (req) => authController.register(req));
   router.post("/auth/login", (req) => authController.login(req));
+  router.get("/auth/me", (req) => authController.me(req));
+  router.post("/auth/logout", (req) => authController.logout(req));
   router.get("/users/{id}", (req, params) => authController.profile(req, params));
 
   // API routes
