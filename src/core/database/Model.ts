@@ -134,7 +134,7 @@ export abstract class Model {
   /**
    * Hydrate a model from database row
    */
-  protected static hydrate<T extends Model>(data: Record<string, any>): T {
+  public static hydrate<T extends Model>(data: Record<string, any>): T {
     const model = new (this as any)() as T;
     model.attributes = { ...data };
     model.original = { ...data };
