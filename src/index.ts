@@ -13,7 +13,7 @@ export { HttpResponse } from "./core/http/Response";
 
 // Database
 export { Model } from "./core/database/Model";
-export type { ScopeCallback } from "./core/database/Model";
+export type { ScopeCallback, HookCallback } from "./core/database/Model";
 export { SoftDeletes } from "./core/database/SoftDeletes";
 export { QueryBuilder } from "./core/database/QueryBuilder";
 export { DatabaseConnection, type DatabaseConfig } from "./core/database/Connection";

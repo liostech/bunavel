@@ -8,6 +8,7 @@ import { BelongsTo } from "./relations/BelongsTo";
 import { BelongsToMany } from "./relations/BelongsToMany";
 
 export type ScopeCallback = (query: QueryBuilder, ...args: any[]) => void;
+export type HookCallback = (model: Model) => boolean | void;
 
 export abstract class Model {
   protected static connection: DatabaseConnection;
@@ -62,6 +63,97 @@ export abstract class Model {
    */
   public static getGlobalScopes(): Map<string, ScopeCallback> {
     return Model.globalScopesRegistry.get(this) ?? new Map();
+  }
+
+  private static hooksRegistry = new WeakMap<typeof Model, Map<string, HookCallback[]>>();
+
+  /**
+   * Register a lifecycle hook callback on this model class. Multiple
+   * callbacks can share a hook name; they run in registration order.
+   */
+  public static registerHook(name: string, callback: HookCallback): void {
+    if (!Model.hooksRegistry.has(this)) {
+      Model.hooksRegistry.set(this, new Map());
+    }
+    const hooks = Model.hooksRegistry.get(this)!;
+    if (!hooks.has(name)) {
+      hooks.set(name, []);
+    }
+    hooks.get(name)!.push(callback);
+  }
+
+  /**
+   * Run every callback registered for a hook name against the given model.
+   * Returns false the instant a callback returns false (cancelling
+   * whatever operation is calling this), otherwise true.
+   */
+  public static fireHook(name: string, model: Model): boolean {
+    const callbacks = Model.hooksRegistry.get(this)?.get(name);
+    if (!callbacks) {
+      return true;
+    }
+    for (const callback of callbacks) {
+      if (callback(model) === false) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Register a callback that runs before a new record is inserted
+   */
+  public static creating(callback: HookCallback): void {
+    this.registerHook("creating", callback);
+  }
+
+  /**
+   * Register a callback that runs after a new record is inserted
+   */
+  public static created(callback: HookCallback): void {
+    this.registerHook("created", callback);
+  }
+
+  /**
+   * Register a callback that runs before an existing record is updated
+   */
+  public static updating(callback: HookCallback): void {
+    this.registerHook("updating", callback);
+  }
+
+  /**
+   * Register a callback that runs after an existing record is updated
+   */
+  public static updated(callback: HookCallback): void {
+    this.registerHook("updated", callback);
+  }
+
+  /**
+   * Register a callback that runs before a record is saved (insert or update)
+   */
+  public static saving(callback: HookCallback): void {
+    this.registerHook("saving", callback);
+  }
+
+  /**
+   * Register a callback that runs after a record is saved (insert or update)
+   */
+  public static saved(callback: HookCallback): void {
+    this.registerHook("saved", callback);
+  }
+
+  /**
+   * Register a callback that runs before a record is deleted
+   */
+  public static deleting(callback: HookCallback): void {
+    this.registerHook("deleting", callback);
+  }
+
+  /**
+   * Register a callback that runs after a record is deleted
+   */
+  public static deleted(callback: HookCallback): void {
+    this.registerHook("deleted", callback);
   }
 
   /**
@@ -218,23 +310,36 @@ export abstract class Model {
    */
   public save(): boolean {
     const constructor = this.constructor as typeof Model;
-    
+
+    if (!constructor.fireHook("saving", this)) {
+      return false;
+    }
+
     if (this.exists) {
       // Update existing record
+      if (!constructor.fireHook("updating", this)) {
+        return false;
+      }
       const id = this.attributes[this.primaryKey];
       const changes = this.getDirty();
       if (Object.keys(changes).length > 0) {
         constructor.query().where(this.primaryKey, "=", id).update(changes);
         this.original = { ...this.attributes };
       }
+      constructor.fireHook("updated", this);
     } else {
       // Insert new record
+      if (!constructor.fireHook("creating", this)) {
+        return false;
+      }
       const id = constructor.query().insert(this.attributes);
       this.attributes[this.primaryKey] = id;
       this.original = { ...this.attributes };
       this.exists = true;
+      constructor.fireHook("created", this);
     }
-    
+
+    constructor.fireHook("saved", this);
     return true;
   }
 
@@ -247,10 +352,16 @@ export abstract class Model {
     }
 
     const constructor = this.constructor as typeof Model;
+
+    if (!constructor.fireHook("deleting", this)) {
+      return false;
+    }
+
     const id = this.attributes[this.primaryKey];
     constructor.query().where(this.primaryKey, "=", id).delete();
     this.exists = false;
-    
+    constructor.fireHook("deleted", this);
+
     return true;
   }
 
