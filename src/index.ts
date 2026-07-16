@@ -1,11 +1,11 @@
 // Core exports
 export { Application } from "./core/Application";
-export { Router } from "./core/routing/Router";
+export { Router, RouteBuilder } from "./core/routing/Router";
 export { Container } from "./core/container/Container";
 export { Controller } from "./core/Controller";
 export type { Middleware } from "./core/middleware/Middleware";
 export { BaseMiddleware } from "./core/middleware/Middleware";
-export type { RouteHandler, Route } from "./core/routing/Router";
+export type { RouteHandler, Route, GroupOptions } from "./core/routing/Router";
 
 // HTTP
 export { HttpRequest } from "./core/http/Request";

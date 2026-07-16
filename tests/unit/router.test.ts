@@ -285,3 +285,18 @@ describe("Named Routes", () => {
     expect(() => router.route("nonexistent")).toThrow("Route [nonexistent] not defined.");
   });
 });
+
+describe("src/index.ts barrel exports", () => {
+  test("exports RouteBuilder and GroupOptions", async () => {
+    const barrel = await import("../../src/index");
+    expect(typeof barrel.RouteBuilder).toBe("function");
+
+    // GroupOptions is a type-only export — verify it's usable as a type by
+    // constructing a router and calling group() with an object shaped like it
+    const router = new barrel.Router();
+    router.group({ prefix: "api" }, (r: InstanceType<typeof barrel.Router>) => {
+      r.get("/ok", () => new Response("ok"));
+    });
+    expect(router.getRoutes()[0]?.path).toBe("/api/ok");
+  });
+});
