@@ -6,6 +6,7 @@ import { DatabaseConnection } from "../../src/core/database/Connection";
 import { EloquentUserProvider } from "../../src/core/auth/EloquentUserProvider";
 import { Cache } from "../../src/core/cache/Cache";
 import { TokenGuard } from "../../src/core/auth/TokenGuard";
+import { Auth } from "../../src/core/auth/Auth";
 import { createMockRequest } from "../helpers/test-helpers";
 
 describe("Hash", () => {
@@ -181,5 +182,67 @@ describe("TokenGuard", () => {
     expect(guard.check(request)).toBe(true);
     guard.logout(request);
     expect(guard.check(request)).toBe(false);
+  });
+});
+
+describe("Auth facade - not configured", () => {
+  test("throws when no guard has been configured", () => {
+    const request = createMockRequest("http://localhost/me");
+    expect(() => Auth.check(request)).toThrow(/Auth guard has not been configured/);
+  });
+});
+
+describe("Auth facade - configured", () => {
+  let connection: DatabaseConnection;
+  let seededUserId: number;
+
+  beforeAll(async () => {
+    connection = new DatabaseConnection({ driver: "sqlite", connection: { filename: ":memory:" } });
+    connection.connect();
+    Model.setConnection(connection);
+    Schema.setConnection(connection);
+
+    await Schema.create("auth_test_users", (table) => {
+      table.id();
+      table.string("email");
+      table.string("password");
+    });
+
+    const user = new AuthTestUser();
+    user.fill({ email: "facade@example.com", password: await Hash.make("correct-password") });
+    user.save();
+    seededUserId = user.get("id");
+
+    Auth.setGuard(new TokenGuard(new EloquentUserProvider(AuthTestUser), new Cache({ driver: "memory" })));
+  });
+
+  afterAll(() => {
+    connection.close();
+  });
+
+  test("attempt() delegates to the configured guard", async () => {
+    const token = await Auth.attempt({ email: "facade@example.com", password: "correct-password" });
+    expect(typeof token).toBe("string");
+  });
+
+  test("user(), check() and id() resolve the authenticated user", async () => {
+    const token = (await Auth.attempt({ email: "facade@example.com", password: "correct-password" }))!;
+    const request = createMockRequest("http://localhost/me", "GET", undefined, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    expect(Auth.check(request)).toBe(true);
+    expect(Auth.id(request)).toBe(seededUserId);
+    expect(Auth.user(request)!.get("email")).toBe("facade@example.com");
+  });
+
+  test("logout() revokes the token", async () => {
+    const token = (await Auth.attempt({ email: "facade@example.com", password: "correct-password" }))!;
+    const request = createMockRequest("http://localhost/me", "GET", undefined, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    Auth.logout(request);
+    expect(Auth.check(request)).toBe(false);
   });
 });
