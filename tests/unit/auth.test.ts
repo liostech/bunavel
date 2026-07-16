@@ -8,6 +8,8 @@ import { Cache } from "../../src/core/cache/Cache";
 import { TokenGuard } from "../../src/core/auth/TokenGuard";
 import { Auth } from "../../src/core/auth/Auth";
 import { createMockRequest } from "../helpers/test-helpers";
+import { AuthMiddleware } from "../../src/core/auth/AuthMiddleware";
+import { UnauthorizedException } from "../../src/core/exceptions/HttpException";
 
 describe("Hash", () => {
   test("make() returns a hash different from the plaintext", async () => {
@@ -244,5 +246,50 @@ describe("Auth facade - configured", () => {
 
     Auth.logout(request);
     expect(Auth.check(request)).toBe(false);
+  });
+});
+
+describe("AuthMiddleware", () => {
+  let connection: DatabaseConnection;
+
+  beforeAll(async () => {
+    connection = new DatabaseConnection({ driver: "sqlite", connection: { filename: ":memory:" } });
+    connection.connect();
+    Model.setConnection(connection);
+    Schema.setConnection(connection);
+
+    await Schema.create("auth_test_users", (table) => {
+      table.id();
+      table.string("email");
+      table.string("password");
+    });
+
+    const user = new AuthTestUser();
+    user.fill({ email: "middleware@example.com", password: await Hash.make("correct-password") });
+    user.save();
+
+    Auth.setGuard(new TokenGuard(new EloquentUserProvider(AuthTestUser), new Cache({ driver: "memory" })));
+  });
+
+  afterAll(() => {
+    connection.close();
+  });
+
+  test("passes an authenticated request through unchanged", async () => {
+    const token = (await Auth.attempt({ email: "middleware@example.com", password: "correct-password" }))!;
+    const request = createMockRequest("http://localhost/me", "GET", undefined, {
+      Authorization: `Bearer ${token}`,
+    });
+
+    const middleware = new AuthMiddleware();
+    const result = await middleware.handle(request);
+    expect(result).toBe(request);
+  });
+
+  test("throws UnauthorizedException for a guest request", async () => {
+    const request = createMockRequest("http://localhost/me");
+    const middleware = new AuthMiddleware();
+
+    await expect(middleware.handle(request)).rejects.toThrow(UnauthorizedException);
   });
 });
