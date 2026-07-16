@@ -44,6 +44,26 @@ export abstract class Model {
     return Model.localScopesRegistry.get(this)?.get(name);
   }
 
+  private static globalScopesRegistry = new WeakMap<typeof Model, Map<string, ScopeCallback>>();
+
+  /**
+   * Register a named global scope on this model class, auto-applied to
+   * every read query until explicitly opted out via withoutGlobalScope()
+   */
+  public static addGlobalScope(name: string, callback: ScopeCallback): void {
+    if (!Model.globalScopesRegistry.has(this)) {
+      Model.globalScopesRegistry.set(this, new Map());
+    }
+    Model.globalScopesRegistry.get(this)!.set(name, callback);
+  }
+
+  /**
+   * Get all global scopes registered on this model class
+   */
+  public static getGlobalScopes(): Map<string, ScopeCallback> {
+    return Model.globalScopesRegistry.get(this) ?? new Map();
+  }
+
   /**
    * Get the table name
    */

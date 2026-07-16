@@ -13,6 +13,9 @@ export class QueryBuilder {
   private joinClauses: string[] = [];
   private eagerLoadRelations: string[] = [];
   private modelClass?: typeof Model;
+  private globalScopesApplied: boolean = false;
+  private removedGlobalScopeNames: Set<string> = new Set();
+  private allGlobalScopesRemoved: boolean = false;
 
   constructor(connection: DatabaseConnection) {
     this.connection = connection;
@@ -150,9 +153,44 @@ export class QueryBuilder {
   }
 
   /**
+   * Exclude a specific global scope from this query
+   */
+  public withoutGlobalScope(name: string): this {
+    this.removedGlobalScopeNames.add(name);
+    return this;
+  }
+
+  /**
+   * Exclude all global scopes from this query
+   */
+  public withoutGlobalScopes(): this {
+    this.allGlobalScopesRemoved = true;
+    return this;
+  }
+
+  /**
+   * Apply the model's registered global scopes to this query, once
+   */
+  private applyGlobalScopes(): void {
+    if (this.globalScopesApplied || !this.modelClass || this.allGlobalScopesRemoved) {
+      this.globalScopesApplied = true;
+      return;
+    }
+    this.globalScopesApplied = true;
+
+    const scopes = this.modelClass.getGlobalScopes();
+    for (const [name, callback] of scopes) {
+      if (!this.removedGlobalScopeNames.has(name)) {
+        callback(this);
+      }
+    }
+  }
+
+  /**
    * Build the SQL query
    */
   private buildSelectQuery(): { sql: string; params: any[] } {
+    this.applyGlobalScopes();
     let sql = `SELECT ${this.selectColumns.join(", ")} FROM ${this.tableName}`;
     const params: any[] = [];
 

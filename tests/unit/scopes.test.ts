@@ -73,3 +73,98 @@ describe("Local Scopes", () => {
     );
   });
 });
+
+class GlobalScopeTestUser extends Model {
+  static override tableName = "global_scope_test_users";
+
+  static {
+    this.addGlobalScope("active", (query) => query.where("active", 1));
+  }
+}
+
+describe("Global Scopes", () => {
+  let connection: DatabaseConnection;
+
+  beforeAll(async () => {
+    connection = new DatabaseConnection({ driver: "sqlite", connection: { filename: ":memory:" } });
+    connection.connect();
+    Model.setConnection(connection);
+    Schema.setConnection(connection);
+
+    await Schema.create("global_scope_test_users", (table) => {
+      table.id();
+      table.string("name");
+      table.integer("active");
+    });
+
+    new GlobalScopeTestUser().fill({ name: "Alice", active: 1 }).save();
+    new GlobalScopeTestUser().fill({ name: "Bob", active: 0 }).save();
+    new GlobalScopeTestUser().fill({ name: "Carol", active: 1 }).save();
+  });
+
+  afterAll(() => {
+    connection.close();
+  });
+
+  test("applies automatically to reads with no explicit opt-in", () => {
+    const results = GlobalScopeTestUser.query().get();
+    expect(results.length).toBe(2);
+  });
+
+  test("all() respects the global scope", () => {
+    const results = GlobalScopeTestUser.all();
+    expect(results.toArray().length).toBe(2);
+  });
+
+  test("withoutGlobalScope(name) restores excluded rows for that query only", () => {
+    const withScope = GlobalScopeTestUser.query().get();
+    expect(withScope.length).toBe(2);
+
+    const withoutScope = GlobalScopeTestUser.query().withoutGlobalScope("active").get();
+    expect(withoutScope.length).toBe(3);
+  });
+
+  test("withoutGlobalScopes() excludes every global scope", () => {
+    const results = GlobalScopeTestUser.query().withoutGlobalScopes().get();
+    expect(results.length).toBe(3);
+  });
+
+  test("does not double-apply the scope across multiple buildSelectQuery calls on the same builder", () => {
+    const paginator = GlobalScopeTestUser.query().paginate(10, 1);
+    expect(paginator.getTotal()).toBe(2);
+    expect(paginator.data().toArray().length).toBe(2);
+  });
+
+  test("combines with a local scope in the same query", () => {
+    GlobalScopeTestUser.addScope("namedAlice", (query) => query.where("name", "=", "Alice"));
+
+    const results = GlobalScopeTestUser.query().scope("namedAlice").get();
+    // global "active" scope (active=1) AND local "namedAlice" scope both apply
+    expect(results.length).toBe(1);
+    expect(results[0]?.name).toBe("Alice");
+  });
+
+  test("global scope callback runs exactly once per query builder instance, even across two buildSelectQuery() calls", () => {
+    // A row-count assertion alone can't distinguish "applied once" from "applied
+    // twice" here, because ANDing an idempotent equality condition with itself
+    // doesn't change the result set. Use an invocation counter instead to prove
+    // the guard actually short-circuits the second buildSelectQuery() call
+    // (paginate() invokes it twice: once via count(), once via get()).
+    let invocationCount = 0;
+
+    class CountedGlobalScopeUser extends Model {
+      static override tableName = "global_scope_test_users";
+
+      static {
+        this.addGlobalScope("counted", (query) => {
+          invocationCount++;
+          query.where("active", 1);
+        });
+      }
+    }
+
+    CountedGlobalScopeUser.query().paginate(10, 1);
+
+    expect(invocationCount).toBe(1);
+  });
+});
