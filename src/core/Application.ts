@@ -54,6 +54,18 @@ export class Application {
     const middleware = this.middleware;
     const exceptionHandler = this.exceptionHandler;
 
+    async function runMiddleware(chain: Middleware[], request: Request): Promise<Request | Response> {
+      let current = request;
+      for (const mw of chain) {
+        const result = await mw.handle(current);
+        if (result instanceof Response) {
+          return result;
+        }
+        current = result;
+      }
+      return current;
+    }
+
     this.server = Bun.serve({
       port,
       async fetch(req: Request): Promise<Response> {
@@ -61,22 +73,26 @@ export class Application {
           const url = new URL(req.url);
           const method = req.method;
 
-          // Execute middleware chain
-          let request = req;
-          for (const mw of middleware) {
-            const result = await mw.handle(request);
-            if (result instanceof Response) {
-              return result;
-            }
-            request = result;
+          // Execute global middleware chain
+          const afterGlobal = await runMiddleware(middleware, req);
+          if (afterGlobal instanceof Response) {
+            return afterGlobal;
           }
+          let request = afterGlobal;
 
           // Route the request
           const route = router.match(method, url.pathname);
-          
+
           if (!route) {
             throw new NotFoundException(`Route not found: ${method} ${url.pathname}`);
           }
+
+          // Execute route-specific (group + per-route) middleware chain
+          const afterRoute = await runMiddleware(route.middleware, request);
+          if (afterRoute instanceof Response) {
+            return afterRoute;
+          }
+          request = afterRoute;
 
           // Execute route handler
           const response = await route.handler(request, route.params);
