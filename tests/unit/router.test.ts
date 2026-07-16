@@ -254,6 +254,21 @@ describe("Route Groups", () => {
     const match = router.match("GET", "/users");
     expect(match?.middleware).toEqual([]);
   });
+
+  test("restores the group stack even if the callback throws", () => {
+    const router = new Router();
+
+    expect(() => {
+      router.group({ prefix: "broken" }, () => {
+        throw new Error("boom");
+      });
+    }).toThrow("boom");
+
+    // If the stack wasn't restored, this route would incorrectly get an
+    // "/broken" prefix inherited from the failed group above.
+    router.get("/users", () => new Response("Users"));
+    expect(router.getRoutes()[router.getRoutes().length - 1]?.path).toBe("/users");
+  });
 });
 
 describe("Named Routes", () => {

@@ -79,8 +79,11 @@ export class Router {
    */
   public group(options: GroupOptions, callback: (router: Router) => void): void {
     this.groupStack.push(options);
-    callback(this);
-    this.groupStack.pop();
+    try {
+      callback(this);
+    } finally {
+      this.groupStack.pop();
+    }
   }
 
   public add(method: string, path: string, handler: RouteHandler): RouteBuilder {
