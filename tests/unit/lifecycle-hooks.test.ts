@@ -2,6 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { Model } from "../../src/core/database/Model";
 import { Schema } from "../../src/core/database/Schema";
 import { DatabaseConnection } from "../../src/core/database/Connection";
+import { SoftDeletes } from "../../src/core/database/SoftDeletes";
 
 describe("Model Lifecycle Hooks", () => {
   let connection: DatabaseConnection;
@@ -231,5 +232,128 @@ describe("Model Lifecycle Hooks", () => {
     sibling.save();
 
     expect(calls).toEqual([]);
+  });
+});
+
+describe("SoftDeletes Lifecycle Hooks", () => {
+  let connection: DatabaseConnection;
+
+  beforeAll(async () => {
+    connection = new DatabaseConnection({ driver: "sqlite", connection: { filename: ":memory:" } });
+    connection.connect();
+    Model.setConnection(connection);
+    Schema.setConnection(connection);
+
+    await Schema.create("hook_test_posts", (table) => {
+      table.id();
+      table.string("title");
+      table.string("deleted_at").nullable();
+    });
+  });
+
+  afterAll(() => {
+    connection.close();
+  });
+
+  test("soft delete() fires deleting/deleted", () => {
+    const calls: string[] = [];
+    class TestPost extends SoftDeletes(Model) {
+      static override tableName = "hook_test_posts";
+      static {
+        this.deleting(() => {
+          calls.push("deleting");
+        });
+        this.deleted(() => {
+          calls.push("deleted");
+        });
+      }
+    }
+
+    const post = new TestPost();
+    post.fill({ title: "ToSoftDelete" }).save();
+    post.delete();
+
+    expect(calls).toEqual(["deleting", "deleted"]);
+    expect(post.trashed()).toBe(true);
+  });
+
+  test("returning false from deleting cancels a soft delete", () => {
+    class TestPost extends SoftDeletes(Model) {
+      static override tableName = "hook_test_posts";
+      static {
+        this.deleting(() => false);
+      }
+    }
+
+    const post = new TestPost();
+    post.fill({ title: "Protected" }).save();
+    const result = post.delete();
+
+    expect(result).toBe(false);
+    expect(post.trashed()).toBe(false);
+  });
+
+  test("restore() fires restoring/restored", () => {
+    const calls: string[] = [];
+    class TestPost extends SoftDeletes(Model) {
+      static override tableName = "hook_test_posts";
+      static {
+        this.restoring(() => {
+          calls.push("restoring");
+        });
+        this.restored(() => {
+          calls.push("restored");
+        });
+      }
+    }
+
+    const post = new TestPost();
+    post.fill({ title: "ToRestore" }).save();
+    post.delete();
+    post.restore();
+
+    expect(calls).toEqual(["restoring", "restored"]);
+    expect(post.trashed()).toBe(false);
+  });
+
+  test("returning false from restoring cancels the restore", () => {
+    class TestPost extends SoftDeletes(Model) {
+      static override tableName = "hook_test_posts";
+      static {
+        this.restoring(() => false);
+      }
+    }
+
+    const post = new TestPost();
+    post.fill({ title: "StaysTrashed" }).save();
+    post.delete();
+
+    const result = post.restore();
+
+    expect(result).toBe(false);
+    expect(post.trashed()).toBe(true);
+  });
+
+  test("forceDelete() fires deleting/deleted via the super.delete() passthrough", () => {
+    const calls: string[] = [];
+    class TestPost extends SoftDeletes(Model) {
+      static override tableName = "hook_test_posts";
+      static {
+        this.deleting(() => {
+          calls.push("deleting");
+        });
+        this.deleted(() => {
+          calls.push("deleted");
+        });
+      }
+    }
+
+    const post = new TestPost();
+    post.fill({ title: "ToForceDelete" }).save();
+    const id = post.get("id");
+    post.forceDelete();
+
+    expect(calls).toEqual(["deleting", "deleted"]);
+    expect(TestPost.withTrashed().find(id)).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import type { Model } from "./Model";
+import type { Model, HookCallback } from "./Model";
 import type { QueryBuilder } from "./QueryBuilder";
 
 /**
@@ -34,8 +34,16 @@ export function SoftDeletes<TBase extends typeof Model>(Base: TBase) {
       if (!this.exists) {
         return false;
       }
+      const constructor = this.constructor as typeof Model;
+      if (!constructor.fireHook("deleting", this)) {
+        return false;
+      }
       this.set("deleted_at", new Date().toISOString());
-      return this.save();
+      const saved = this.save();
+      if (saved) {
+        constructor.fireHook("deleted", this);
+      }
+      return saved;
     }
 
     /**
@@ -49,8 +57,16 @@ export function SoftDeletes<TBase extends typeof Model>(Base: TBase) {
      * Restore a soft-deleted record
      */
     public restore(): boolean {
+      const constructor = this.constructor as typeof Model;
+      if (!constructor.fireHook("restoring", this)) {
+        return false;
+      }
       this.set("deleted_at", null);
-      return this.save();
+      const saved = this.save();
+      if (saved) {
+        constructor.fireHook("restored", this);
+      }
+      return saved;
     }
 
     /**
@@ -72,6 +88,20 @@ export function SoftDeletes<TBase extends typeof Model>(Base: TBase) {
      */
     public static onlyTrashed(): QueryBuilder {
       return this.query().withoutGlobalScope("softDelete").whereNotNull("deleted_at");
+    }
+
+    /**
+     * Register a callback that runs before a soft-deleted record is restored
+     */
+    public static restoring(callback: HookCallback): void {
+      this.registerHook("restoring", callback);
+    }
+
+    /**
+     * Register a callback that runs after a soft-deleted record is restored
+     */
+    public static restored(callback: HookCallback): void {
+      this.registerHook("restored", callback);
     }
   };
 }
