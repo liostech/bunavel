@@ -293,3 +293,14 @@ describe("AuthMiddleware", () => {
     await expect(middleware.handle(request)).rejects.toThrow(UnauthorizedException);
   });
 });
+
+describe("src/index.ts barrel exports", () => {
+  test("exports the auth module", async () => {
+    const barrel = await import("../../src/index");
+    expect(typeof barrel.Auth).toBe("function");
+    expect(typeof barrel.TokenGuard).toBe("function");
+    expect(typeof barrel.EloquentUserProvider).toBe("function");
+    expect(typeof barrel.AuthMiddleware).toBe("function");
+    expect(typeof barrel.Hash).toBe("function");
+  });
+});

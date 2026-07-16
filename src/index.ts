@@ -87,3 +87,12 @@ export { abort, abort_if, abort_unless, abort_404, abort_403, abort_401, abort_5
 // CLI
 export { Artisan } from "./core/cli/Artisan";
 export { Command } from "./core/cli/Command";
+
+// Auth
+export { Auth } from "./core/auth/Auth";
+export type { Guard } from "./core/auth/Guard";
+export { TokenGuard } from "./core/auth/TokenGuard";
+export type { UserProvider } from "./core/auth/UserProvider";
+export { EloquentUserProvider, type EloquentUserProviderOptions } from "./core/auth/EloquentUserProvider";
+export { AuthMiddleware } from "./core/auth/AuthMiddleware";
+export { Hash } from "./core/support/Hash";
