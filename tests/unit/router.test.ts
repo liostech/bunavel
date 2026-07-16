@@ -1,5 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import { Router } from "../../src/core/routing/Router";
+import { BaseMiddleware } from "../../src/core/middleware/Middleware";
 
 describe("Router", () => {
   describe("Basic Routing", () => {
@@ -159,5 +160,128 @@ describe("Router", () => {
 
       expect(match).toBeNull();
     });
+  });
+});
+
+describe("Route Groups", () => {
+  test("applies a group prefix to nested routes", () => {
+    const router = new Router();
+    router.group({ prefix: "api" }, (router) => {
+      router.get("/users", () => new Response("Users"));
+    });
+
+    expect(router.getRoutes()[0]?.path).toBe("/api/users");
+    expect(router.match("GET", "/api/users")).not.toBeNull();
+  });
+
+  test("nests group prefixes outer to inner", () => {
+    const router = new Router();
+    router.group({ prefix: "api" }, (router) => {
+      router.group({ prefix: "v1" }, (router) => {
+        router.get("/posts", () => new Response("Posts"));
+      });
+    });
+
+    expect(router.getRoutes()[0]?.path).toBe("/api/v1/posts");
+  });
+
+  test("normalizes slashes when joining prefixes", () => {
+    const router = new Router();
+    router.group({ prefix: "/api/" }, (router) => {
+      router.get("users", () => new Response("Users"));
+    });
+
+    expect(router.getRoutes()[0]?.path).toBe("/api/users");
+  });
+
+  test("group with no prefix does not affect the path", () => {
+    const router = new Router();
+    class NoopMiddleware extends BaseMiddleware {
+      async handle(request: Request): Promise<Request | Response> {
+        return request;
+      }
+    }
+
+    router.group({ middleware: [new NoopMiddleware()] }, (router) => {
+      router.get("/users", () => new Response("Users"));
+    });
+
+    expect(router.getRoutes()[0]?.path).toBe("/users");
+  });
+
+  test("accumulates group middleware onto the matched route, outer to inner", () => {
+    const router = new Router();
+    class NoopMiddleware extends BaseMiddleware {
+      async handle(request: Request): Promise<Request | Response> {
+        return request;
+      }
+    }
+    const outer = new NoopMiddleware();
+    const inner = new NoopMiddleware();
+
+    router.group({ middleware: [outer] }, (router) => {
+      router.group({ middleware: [inner] }, (router) => {
+        router.get("/users", () => new Response("Users"));
+      });
+    });
+
+    const match = router.match("GET", "/users");
+    expect(match?.middleware).toEqual([outer, inner]);
+  });
+
+  test("per-route middleware() appends after group middleware", () => {
+    const router = new Router();
+    class NoopMiddleware extends BaseMiddleware {
+      async handle(request: Request): Promise<Request | Response> {
+        return request;
+      }
+    }
+    const groupMw = new NoopMiddleware();
+    const routeMw = new NoopMiddleware();
+
+    router.group({ middleware: [groupMw] }, (router) => {
+      router.get("/users", () => new Response("Users")).middleware(routeMw);
+    });
+
+    const match = router.match("GET", "/users");
+    expect(match?.middleware).toEqual([groupMw, routeMw]);
+  });
+
+  test("existing ungrouped routes have an empty middleware array", () => {
+    const router = new Router();
+    router.get("/users", () => new Response("Users"));
+
+    const match = router.match("GET", "/users");
+    expect(match?.middleware).toEqual([]);
+  });
+});
+
+describe("Named Routes", () => {
+  test("resolves a named route with no parameters", () => {
+    const router = new Router();
+    router.get("/users", () => new Response("Users")).name("users.index");
+
+    expect(router.route("users.index")).toBe("/users");
+  });
+
+  test("resolves a named route substituting parameters", () => {
+    const router = new Router();
+    router.get("/users/{id}", () => new Response("User")).name("users.show");
+
+    expect(router.route("users.show", { id: 42 })).toBe("/users/42");
+  });
+
+  test("concatenates group name prefix with the route's own name", () => {
+    const router = new Router();
+    router.group({ prefix: "api", name: "api." }, (router) => {
+      router.get("/users", () => new Response("Users")).name("users.index");
+    });
+
+    expect(router.route("api.users.index")).toBe("/api/users");
+  });
+
+  test("throws for an unknown route name", () => {
+    const router = new Router();
+    expect(() => router.route("nonexistent")).toThrow("Route [nonexistent] not defined.");
   });
 });
