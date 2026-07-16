@@ -48,13 +48,15 @@ export class QueryBuilder {
   /**
    * Add a WHERE clause
    */
-  public where(column: string, operator: string, value?: any): this {
+  public where(column: string, value: any): this;
+  public where(column: string, operator: string, value: any): this;
+  public where(column: string, operatorOrValue: any, value?: any): this {
     // If only 2 arguments, assume operator is '='
     if (value === undefined) {
-      value = operator;
-      operator = "=";
+      this.whereConditions.push({ column, operator: "=", value: operatorOrValue });
+      return this;
     }
-    this.whereConditions.push({ column, operator, value });
+    this.whereConditions.push({ column, operator: operatorOrValue, value });
     return this;
   }
 
